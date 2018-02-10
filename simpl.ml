@@ -1,38 +1,44 @@
+(* Ali Ghanbari *)
+(* axg173030@utdallas.edu *)
+
 open Simpltypes
 
 (* The 'store' models the machine's memory as a mapping from
  * variable names to integers. *)
 type store = varname -> int
 
-let init_store (l : (varname*int) list) : store =
-  (* YOUR CODE GOES HERE
-   * Replace the following line with code that takes a list of
-   * (variable,integer) pairs and returns a store that maps each
-   * variable to each corresponding integer. If your store function
-   * is applied to a variable not in the list, it may return any
-   * integer or it may raise an exception. *)
-  (fun _ -> 0);;  (* <-- delete this line *)
+(* auxiliary function defintions *)
+(* citation: this is taken from the previous assignment *)
+let update f x y = fun x' -> if x' = x then y else f x';;
 
-let rec eval_arith (s:store) (a:iarith) : int =
-  (* YOUR CODE GOES HERE
-   * Replace the following line with code that evaluates iarith
-   * expression 'a' in memory state 's' and returns an integer.
-   * The type 'iarith' is defined in simpltypes.ml. *)
-  0;;  (* <-- delete this line *)
+let init_store (l : (varname * int) list) : store =
+  let f acc (var, vl) = update acc var vl in (* OMG! val is a keyword of OCaml! *)
+    List.fold_left f (fun v -> raise (Failure "oops! uninitialized variable")) l;;
 
-let rec eval_bool (s:store) (b:ibool) : bool =
-  (* YOUR CODE GOES HERE
-   * Replace the following line with code that evaluates ibool
-   * expression 'b' in memory state 's' and returns a bool.
-   * The type 'ibool' is defined in simpltypes.ml. *)
-  false;;  (* <-- delete this line *)
+let rec eval_arith (s : store) (a : iarith) : int =
+  match a with
+    Const n         -> n
+  | Var v           -> s v
+  | Plus (al, ar)   -> (eval_arith s al) + (eval_arith s ar)
+  | Minus (al, ar)  -> (eval_arith s al) - (eval_arith s ar)
+  | Times (al, ar)  -> (eval_arith s al) * (eval_arith s ar);;
 
-let rec exec_cmd (s:store) (c:icmd) : store =
-  (* YOUR CODE GOES HERE
-   * Replace the following line with code that executes icmd
-   * 'c' in memory state 's' and returns the new memory state
-   * that results. Type 'icmd' is defined in simpltypes.ml. *)
-  s;;  (* <-- delete this line *)
+let rec eval_bool (s : store) (b : ibool) : bool =
+  match b with
+    True          -> true
+  | False         -> false
+  | Leq (al, ar)  -> (eval_arith s al) <= (eval_arith s ar)
+  | Conj (bl, br) -> (eval_bool s bl) && (eval_bool s br)
+  | Disj (bl, br) -> (eval_bool s bl) || (eval_bool s br)
+  | Neg be        -> not (eval_bool s be);;
+
+let rec exec_cmd (s : store) (c : icmd) : store =
+  match c with
+  | Skip              -> s
+  | Seq (c1, c2)      -> exec_cmd (exec_cmd s c1) c2
+  | Assign (var, ae)  -> update s var (eval_arith s ae)
+  | Cond (be, ct, ce) -> if (eval_bool s be) then exec_cmd s ct else exec_cmd s ce
+  | While (g, cb)     -> exec_cmd s (Cond (g, Seq (cb, While (g, cb)), Skip));;
 
 
 (* This is the main entrypoint of the code. You don't need to understand
